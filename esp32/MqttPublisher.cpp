@@ -2,11 +2,11 @@
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiClient.h>
+#include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 
 namespace {
-WiFiClient mqttWiFiClient;
+WiFiClientSecure mqttWiFiClient;
 PubSubClient mqttClient(mqttWiFiClient);
 }
 
@@ -15,6 +15,10 @@ MqttPublisher::MqttPublisher(const char * host,
                              const char * clientId,
                              const char * username,
                              const char * password,
+                             const char * caCert,
+                             const char * clientCert,
+                             const char * clientKey,
+                             bool useTls,
                              const char * bootTopic,
                              uint32_t reconnectIntervalMs)
     : host(host),
@@ -22,12 +26,21 @@ MqttPublisher::MqttPublisher(const char * host,
       clientId(clientId),
       username(username),
       password(password),
+      caCert(caCert),
+      clientCert(clientCert),
+      clientKey(clientKey),
+      useTls(useTls),
       bootTopic(bootTopic),
       reconnectIntervalMs(reconnectIntervalMs),
       lastConnectAttemptMs(0) {}
 
 void MqttPublisher::begin() {
   mqttClient.setServer(host, port);
+  if (useTls && hasTlsConfig()) {
+    mqttWiFiClient.setCACert(caCert);
+    mqttWiFiClient.setCertificate(clientCert);
+    mqttWiFiClient.setPrivateKey(clientKey);
+  }
 }
 
 void MqttPublisher::loop() {
@@ -52,6 +65,10 @@ bool MqttPublisher::ensureConnected() {
     return false;
   }
 
+  if (useTls && !hasTlsConfig()) {
+    return false;
+  }
+
   uint32_t now = millis();
   if (now - lastConnectAttemptMs < reconnectIntervalMs) {
     return false;
@@ -62,4 +79,24 @@ bool MqttPublisher::ensureConnected() {
     return mqttClient.connect(clientId, username, password);
   }
   return mqttClient.connect(clientId);
+}
+
+bool MqttPublisher::hasTlsConfig() const {
+  if (!useTls) {
+    return true;
+  }
+
+  if (caCert == nullptr || caCert[0] == '\0') {
+    return false;
+  }
+
+  if (clientCert == nullptr || clientCert[0] == '\0') {
+    return false;
+  }
+
+  if (clientKey == nullptr || clientKey[0] == '\0') {
+    return false;
+  }
+
+  return true;
 }

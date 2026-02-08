@@ -18,6 +18,10 @@ static MqttPublisher mqtt(
   AppConfig::MqttClientId,
   AppConfig::MqttUsername,
   AppConfig::MqttPassword,
+  AppConfig::MqttCaCert,
+  AppConfig::MqttClientCert,
+  AppConfig::MqttClientKey,
+  AppConfig::MqttUseTls,
   AppConfig::MqttBootTopic,
   AppConfig::MqttReconnectIntervalMs);
 static BootButton bootButton(

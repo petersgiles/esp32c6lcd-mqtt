@@ -1,7 +1,9 @@
-#include "Display_ST7789.h"
+#include "AppUI.h"
+
 #include "LVGL_Driver.h"
 
-static void Create_Hello_UI() {
+namespace {
+void Create_Hello_UI() {
   lv_obj_t * screen = lv_scr_act();
 
   // Root layout
@@ -52,14 +54,8 @@ static void Create_Hello_UI() {
   lv_obj_set_style_text_color(hint, lv_color_white(), 0);
   lv_obj_align(hint, LV_ALIGN_CENTER, 0, 0);
 }
-
-void setup() {
-  LCD_Init();
-  Lvgl_Init();
-  Create_Hello_UI();
 }
 
-void loop() {
-  Timer_Loop();
-  delay(5);
+void AppUI::Init() {
+  Create_Hello_UI();
 }

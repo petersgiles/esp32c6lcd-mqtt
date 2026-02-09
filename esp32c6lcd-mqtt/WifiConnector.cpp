@@ -35,6 +35,20 @@ bool WifiConnector::isConnected() const {
   return WiFi.status() == WL_CONNECTED;
 }
 
+bool WifiConnector::getIp(char * buffer, size_t size) const {
+  if (buffer == nullptr || size < 16) {
+    return false;
+  }
+  if (!isConnected()) {
+    buffer[0] = '\0';
+    return false;
+  }
+
+  IPAddress ip = WiFi.localIP();
+  snprintf(buffer, size, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+  return true;
+}
+
 void WifiConnector::connect() {
   if (ssid == nullptr || ssid[0] == '\0') {
     return;

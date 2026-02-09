@@ -40,6 +40,15 @@ Override the partition scheme when needed:
 make esp32-build ESP32_FQBN_OPTS=PartitionScheme=no_fs
 ```
 
+### Local MQTT + Dapr (quick start)
+
+```sh
+make infra-up
+make dapr-run
+```
+
+This runs Mosquitto in Docker and the Go app locally so you can see stdout in your terminal.
+
 If everything is working, you should see a simple “Hello, ESP32-C6!” label on the LCD.
 
 ## Hello world entry point

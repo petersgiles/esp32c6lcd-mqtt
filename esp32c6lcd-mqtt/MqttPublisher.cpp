@@ -1,13 +1,23 @@
 #include "MqttPublisher.h"
 
 #include <Arduino.h>
+#include <cstring>
 #include <WiFi.h>
 #include <WiFiClientSecure.h>
 #include <PubSubClient.h>
 
 namespace {
-WiFiClientSecure mqttWiFiClient;
-PubSubClient mqttClient(mqttWiFiClient);
+WiFiClient mqttWiFiClient;
+WiFiClientSecure mqttWiFiClientSecure;
+PubSubClient mqttClient;
+MqttPublisher * activePublisher = nullptr;
+
+void OnMqttMessage(char * topic, uint8_t * payload, unsigned int length) {
+  if (activePublisher == nullptr) {
+    return;
+  }
+  activePublisher->handleMessage(topic, payload, length);
+}
 }
 
 MqttPublisher::MqttPublisher(const char * host,
@@ -20,6 +30,7 @@ MqttPublisher::MqttPublisher(const char * host,
                              const char * clientKey,
                              bool useTls,
                              const char * bootTopic,
+                             const char * ackTopic,
                              uint32_t reconnectIntervalMs)
     : host(host),
       port(port),
@@ -31,15 +42,29 @@ MqttPublisher::MqttPublisher(const char * host,
       clientKey(clientKey),
       useTls(useTls),
       bootTopic(bootTopic),
+      ackTopic(ackTopic),
       reconnectIntervalMs(reconnectIntervalMs),
-      lastConnectAttemptMs(0) {}
+      lastConnectAttemptMs(0),
+      lastState(-1),
+      lastAckMs(0),
+      subscribed(false),
+      hasAck(false) {
+  lastAck[0] = '\0';
+}
 
 void MqttPublisher::begin() {
+  if (useTls) {
+    mqttClient.setClient(mqttWiFiClientSecure);
+  } else {
+    mqttClient.setClient(mqttWiFiClient);
+  }
   mqttClient.setServer(host, port);
+  activePublisher = this;
+  mqttClient.setCallback(OnMqttMessage);
   if (useTls && hasTlsConfig()) {
-    mqttWiFiClient.setCACert(caCert);
-    mqttWiFiClient.setCertificate(clientCert);
-    mqttWiFiClient.setPrivateKey(clientKey);
+    mqttWiFiClientSecure.setCACert(caCert);
+    mqttWiFiClientSecure.setCertificate(clientCert);
+    mqttWiFiClientSecure.setPrivateKey(clientKey);
   }
 }
 
@@ -56,11 +81,30 @@ bool MqttPublisher::publishBootPress(const char * payload) {
   return mqttClient.publish(bootTopic, payload);
 }
 
+bool MqttPublisher::isConnected() const {
+  return mqttClient.connected();
+}
+
+int MqttPublisher::lastConnectState() const {
+  return lastState;
+}
+
+const char * MqttPublisher::lastAckPayload() const {
+  return hasAck ? lastAck : "";
+}
+
+uint32_t MqttPublisher::lastAckTimestampMs() const {
+  return lastAckMs;
+}
+
 bool MqttPublisher::ensureConnected() {
   if (mqttClient.connected()) {
     return true;
   }
 
+  int stateBefore = mqttClient.state();
+
+  subscribed = false;
   if (WiFi.status() != WL_CONNECTED) {
     return false;
   }
@@ -76,9 +120,30 @@ bool MqttPublisher::ensureConnected() {
 
   lastConnectAttemptMs = now;
   if (username != nullptr && username[0] != '\0') {
-    return mqttClient.connect(clientId, username, password);
+    if (!mqttClient.connect(clientId, username, password)) {
+      lastState = mqttClient.state();
+      if (lastState != stateBefore) {
+        Serial.printf("mqtt connect failed: %d\n", lastState);
+      }
+      return false;
+    }
+  } else if (!mqttClient.connect(clientId)) {
+    lastState = mqttClient.state();
+    if (lastState != stateBefore) {
+      Serial.printf("mqtt connect failed: %d\n", lastState);
+    }
+    return false;
   }
-  return mqttClient.connect(clientId);
+
+  lastState = 0;
+  if (lastState != stateBefore) {
+    Serial.println("mqtt connected");
+  }
+
+  if (ackTopic != nullptr && ackTopic[0] != '\0') {
+    subscribed = mqttClient.subscribe(ackTopic, 1);
+  }
+  return true;
 }
 
 bool MqttPublisher::hasTlsConfig() const {
@@ -99,4 +164,23 @@ bool MqttPublisher::hasTlsConfig() const {
   }
 
   return true;
+}
+
+void MqttPublisher::handleMessage(const char * topic, const uint8_t * payload, unsigned int length) {
+  if (ackTopic == nullptr || ackTopic[0] == '\0') {
+    return;
+  }
+
+  if (strcmp(topic, ackTopic) != 0) {
+    return;
+  }
+
+  unsigned int copyLen = length;
+  if (copyLen >= sizeof(lastAck)) {
+    copyLen = sizeof(lastAck) - 1;
+  }
+  memcpy(lastAck, payload, copyLen);
+  lastAck[copyLen] = '\0';
+  lastAckMs = millis();
+  hasAck = true;
 }

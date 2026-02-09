@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  mqtt:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1884:1884"
+    volumes:
+      - ./infra/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro

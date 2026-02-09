@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include <stddef.h>
 
 class WifiConnector {
  public:
@@ -12,6 +13,7 @@ class WifiConnector {
   void begin();
   void ensureConnected();
   bool isConnected() const;
+  bool getIp(char * buffer, size_t size) const;
 
  private:
   void connect();

@@ -15,4 +15,5 @@ void UpdateStatus(bool wifiConnected,
 				  uint32_t nowMs,
 				  uint32_t lastPressMs,
 				  uint32_t lastAckMs);
+void AnimationTask(void * timer);
 }

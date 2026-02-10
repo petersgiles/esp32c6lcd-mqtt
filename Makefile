@@ -1,5 +1,5 @@
 GO_DIR := go
-GO_CMD := $(GO_DIR)/cmd/mqtt-listener
+GO_CMD := $(GO_DIR)/cmd/subscriber
 SKETCH_FILE := esp32c6lcd-mqtt/esp32c6lcd-mqtt.ino
 ARDUINO_FQBN := esp32:esp32:esp32c6
 ARDUINO_PORT := /dev/ttyACM0
@@ -14,7 +14,7 @@ go-build:
 	cd $(GO_DIR) && go build ./...
 
 go-run:
-	cd $(GO_DIR) && if [ -f .env.secrets ]; then set -a && . ./.env.secrets && set +a; fi; go run ./cmd/mqtt-listener
+	cd $(GO_DIR) && if [ -f .env.secrets ]; then set -a && . ./.env.secrets && set +a; fi; go run ./cmd/subscriber
 
 go-tidy:
 	cd $(GO_DIR) && go mod tidy
@@ -23,7 +23,7 @@ go-fmt:
 	cd $(GO_DIR) && gofmt -w cmd
 
 go-test-run:
-	cd $(GO_DIR) && if [ -f .env.secrets ]; then set -a && . ./.env.secrets && set +a; fi; APP_PORT=6002 go run ./cmd/mqtt-tester
+	cd $(GO_DIR) && if [ -f .env.secrets ]; then set -a && . ./.env.secrets && set +a; fi; APP_PORT=6002 go run ./cmd/publisher
 
 infra-up:
 	docker compose up -d
